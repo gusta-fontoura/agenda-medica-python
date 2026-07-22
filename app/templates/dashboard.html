@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Agenda Medica</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_minimal.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
     <script src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -25,6 +25,22 @@
 
     <main class="max-w-7xl mx-auto px-4 py-6">
         <div class="bg-white rounded-lg shadow-md p-6">
+
+            {% if error_message %}
+            <div id="error-state" class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <p class="text-lg font-medium text-red-700">{{ error_message }}</p>
+                <p class="text-sm text-red-500 mt-1">Verifique a conexao e tente novamente.</p>
+                <button onclick="location.reload()"
+                    class="mt-4 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">
+                    Tentar novamente
+                </button>
+            </div>
+            {% else %}
+
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                 <h2 class="text-lg font-semibold text-gray-800">Agendamentos</h2>
                 <div class="relative">
@@ -34,7 +50,9 @@
                 </div>
             </div>
 
-            <div id="agendamentos-table"></div>
+            <div id="table-wrapper">
+                <div id="agendamentos-table"></div>
+            </div>
 
             <div id="empty-state" class="hidden text-center py-12 text-gray-500">
                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,9 +62,14 @@
                 <p class="text-lg font-medium">Nenhum agendamento encontrado</p>
                 <p class="text-sm">Nao ha registros para exibir no momento.</p>
             </div>
+
+            {% endif %}
         </div>
     </main>
 
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+        var AGENDAMENTOS_DATA = {{ agendamentos_json|safe }};
+    </script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}?v=2"></script>
 </body>
 </html>

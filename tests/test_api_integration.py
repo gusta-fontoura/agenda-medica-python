@@ -1,5 +1,7 @@
+import pytest
 import requests as req
 from unittest.mock import patch, Mock
+from app.services.medical_api import AgendamentoAPIError
 
 
 def test_api_mock_retorna_agendamentos(client):
@@ -42,28 +44,53 @@ def test_dashboard_carrega_com_dados(client):
     })
     response = client.get("/dashboard")
     assert response.status_code == 200
-    assert b"Tabulator" in response.data or b"tabulator" in response.data
+    assert b"AGENDAMENTOS_DATA" in response.data
 
 
-def test_consumo_api_falha_retorna_vazio(app, client):
+def test_dashboard_erro_api_retorna_502(client):
+    client.post("/login", data={
+        "email": "admin@timesaver.com.br",
+        "password": "senha123"
+    })
+    with patch("app.services.medical_api.requests.get") as mock_get:
+        mock_get.side_effect = req.exceptions.ConnectionError("Connection refused")
+        response = client.get("/dashboard")
+        assert response.status_code == 502
+        assert b"error-message" in response.data or b"error_state" in response.data or b"Tentar novamente" in response.data
+
+
+def test_dashboard_timeout_api_retorna_504(client):
+    client.post("/login", data={
+        "email": "admin@timesaver.com.br",
+        "password": "senha123"
+    })
+    with patch("app.services.medical_api.requests.get") as mock_get:
+        mock_get.side_effect = req.exceptions.Timeout("Connection timed out")
+        response = client.get("/dashboard")
+        assert response.status_code == 504
+
+
+def test_consumo_api_falha_levanta_excecao(app, client):
     with patch("app.services.medical_api.requests.get") as mock_get:
         mock_get.side_effect = req.exceptions.ConnectionError("Connection refused")
         with app.app_context():
             from app.services.medical_api import get_agendamentos
-            result = get_agendamentos()
-            assert result == []
+            with pytest.raises(AgendamentoAPIError) as exc_info:
+                get_agendamentos()
+            assert exc_info.value.status_code == 502
 
 
-def test_consumo_api_timeout_retorna_vazio(app, client):
+def test_consumo_api_timeout_levanta_excecao(app, client):
     with patch("app.services.medical_api.requests.get") as mock_get:
         mock_get.side_effect = req.exceptions.Timeout("Connection timed out")
         with app.app_context():
             from app.services.medical_api import get_agendamentos
-            result = get_agendamentos()
-            assert result == []
+            with pytest.raises(AgendamentoAPIError) as exc_info:
+                get_agendamentos()
+            assert exc_info.value.status_code == 504
 
 
-def test_consumo_api_json_invalido_retorna_vazio(app, client):
+def test_consumo_api_json_invalido_levanta_excecao(app, client):
     with patch("app.services.medical_api.requests.get") as mock_get:
         mock_response = Mock()
         mock_response.raise_for_status = Mock()
@@ -71,8 +98,22 @@ def test_consumo_api_json_invalido_retorna_vazio(app, client):
         mock_get.return_value = mock_response
         with app.app_context():
             from app.services.medical_api import get_agendamentos
-            result = get_agendamentos()
-            assert result == []
+            with pytest.raises(AgendamentoAPIError) as exc_info:
+                get_agendamentos()
+            assert exc_info.value.status_code == 502
+
+
+def test_consumo_api_nao_lista_levanta_excecao(app, client):
+    with patch("app.services.medical_api.requests.get") as mock_get:
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"error": "unexpected"}
+        mock_get.return_value = mock_response
+        with app.app_context():
+            from app.services.medical_api import get_agendamentos
+            with pytest.raises(AgendamentoAPIError) as exc_info:
+                get_agendamentos()
+            assert exc_info.value.status_code == 502
 
 
 def test_consumo_api_sucesso(app, client):
