@@ -5,6 +5,13 @@ from app.utils.logger import logger
 REQUIRED_FIELDS = ["paciente", "cpf", "medico", "especialidade", "data", "horario", "convenio", "status"]
 
 
+class AgendamentoAPIError(Exception):
+    def __init__(self, message, status_code=500):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(self.message)
+
+
 def get_agendamentos():
     url = current_app.config.get("API_MOCK_URL", "http://localhost:5000/api/agendamentos")
 
@@ -15,8 +22,8 @@ def get_agendamentos():
         data = response.json()
 
         if not isinstance(data, list):
-            logger.warning("Resposta da API nao e uma lista. Retornando lista vazia.")
-            return []
+            logger.warning("Resposta da API nao e uma lista.")
+            raise AgendamentoAPIError("Formato de resposta inesperado da API.", 502)
 
         valid_data = []
         for item in data:
@@ -29,15 +36,17 @@ def get_agendamentos():
         logger.info(f"Consumidos {len(valid_data)} agendamentos validos da API.")
         return valid_data
 
+    except AgendamentoAPIError:
+        raise
     except requests.exceptions.Timeout:
         logger.error("Timeout ao conectar com a API de agendamentos.")
-        return []
+        raise AgendamentoAPIError("API de agendamentos indisponivel. Tente novamente mais tarde.", 504)
     except requests.exceptions.ConnectionError:
         logger.error("Erro de conexao com a API de agendamentos.")
-        return []
+        raise AgendamentoAPIError("Nao foi possivel conectar com a API de agendamentos.", 502)
     except requests.exceptions.RequestException as e:
         logger.error(f"Erro na requisicao a API: {e}")
-        return []
+        raise AgendamentoAPIError("Erro ao comunicar com a API de agendamentos.", 502)
     except ValueError:
         logger.error("Resposta da API com JSON invalido.")
-        return []
+        raise AgendamentoAPIError("Resposta invalida da API de agendamentos.", 502)
